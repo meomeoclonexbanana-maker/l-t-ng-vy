@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Câu Cá</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sky-top:#8fd3ea; --sky-bot:#d8f0ee;
+    --water-top:#2a8fa3; --water-mid:#146074; --water-bot:#062733;
+    --sand:#e8d9ab; --ink:#0b3d4c; --paper:#fbf6e9;
+    --gold:#f4b73f; --coral:#ef7d54; --line:#faf7ee;
+    --danger:#e5533d; --ok:#4fae6a;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){ --paper:#1c2b2f; --ink:#eef2ee; }
+  }
+  :root[data-theme="dark"]{ --paper:#1c2b2f; --ink:#eef2ee; }
+  *{box-sizing:border-box;}
+  html,body{ margin:0;padding:0;height:100%;overflow:hidden;
+    font-family:'Nunito',system-ui,sans-serif; background:var(--paper);
+    -webkit-tap-highlight-color:transparent; touch-action:none; }
+  #game{ position:relative; width:100vw;height:100vh; max-width:100%; overflow:hidden; }
+  canvas{ display:block; width:100%;height:100%; }
+  .hud{ position:absolute;top:0;left:0;right:0; display:flex;justify-content:space-between;
+    align-items:center; padding:14px 16px; pointer-events:none; z-index:5; }
+  .pill{ background:rgba(251,246,233,0.92); color:var(--ink); font-family:'Baloo 2',system-ui,sans-serif;
+    font-weight:700; font-size:15px; padding:8px 16px; border-radius:999px;
+    box-shadow:0 2px 8px rgba(0,0,0,0.15); display:flex;align-items:center;gap:6px; }
+  .pill .n{font-size:18px;color:var(--coral);}
+  .bite-prompt{
+    position:absolute; left:50%; top:42%; transform:translate(-50%,-50%) scale(0.7);
+    font-family:'Baloo 2',system-ui,sans-serif; font-weight:800; font-size:22px;
+    color:#fff; background:var(--danger); padding:14px 26px; border-radius:999px;
+    box-shadow:0 8px 22px rgba(0,0,0,0.35); opacity:0; pointer-events:none;
+    transition:opacity .12s ease, transform .12s ease; z-index:8; white-space:nowrap;
+  }
+  .bite-prompt.show{ opacity:1; transform:translate(-50%,-50%) scale(1); animation:pulse .5s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.25);} }
+  .popup{
+    position:absolute; left:50%; top:30%; transform:translate(-50%,-50%);
+    font-family:'Baloo 2',system-ui,sans-serif; font-weight:800; font-size:20px;
+    color:var(--gold); text-shadow:0 2px 6px rgba(0,0,0,0.5); opacity:0; z-index:7;
+    pointer-events:none; transition:opacity .3s ease, transform .8s ease; white-space:nowrap;
+  }
+  .popup.show{ opacity:1; transform:translate(-50%,-90%); }
+  .reel-hud{
+    position:absolute; left:50%; bottom:22px; transform:translateX(-50%);
+    width:min(320px,86%); background:rgba(251,246,233,0.94); border-radius:16px;
+    padding:10px 16px 12px; box-shadow:0 6px 20px rgba(0,0,0,0.25);
+    opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:6;
+  }
+  .reel-hud.show{opacity:1;}
+  .reel-hud .row{ display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .reel-hud .lbl{ font-family:'Baloo 2',system-ui,sans-serif; font-weight:700; font-size:11px;
+    color:var(--ink); width:64px; }
+  .bar{ flex:1; height:10px; border-radius:999px; background:rgba(11,61,76,0.15); overflow:hidden; }
+  .bar > i{ display:block; height:100%; border-radius:999px; transition:width .08s linear, background-color .2s; }
+  .reel-title{ font-family:'Baloo 2',system-ui,sans-serif; font-weight:800; font-size:14px; color:var(--ink); text-align:center; }
+  .hint{ position:absolute; bottom:18px; left:0; right:0; text-align:center; color:var(--paper);
+    font-size:13px; font-weight:600; text-shadow:0 1px 3px rgba(0,0,0,0.4); z-index:5;
+    pointer-events:none; opacity:0.9; }
+  .overlay{ position:absolute;inset:0; display:flex;align-items:center;justify-content:center;
+    background:rgba(11,61,76,0.55); z-index:10; opacity:0;pointer-events:none; transition:opacity .25s ease; }
+  .overlay.show{opacity:1;pointer-events:auto;}
+  .card{ background:var(--paper); color:var(--ink); border-radius:20px; padding:28px 30px;
+    text-align:center; max-width:280px; width:86%; box-shadow:0 12px 30px rgba(0,0,0,0.3); }
+  .card h1{ font-family:'Baloo 2',system-ui,sans-serif; font-size:26px; margin:0 0 6px; color:var(--coral); }
+  .card p{ margin:0 0 16px; font-size:14px; line-height:1.55; opacity:0.85; }
+  .score-big{ font-family:'Baloo 2',system-ui,sans-serif; font-size:42px; color:var(--gold);
+    margin:4px 0 18px; text-shadow:0 2px 0 rgba(0,0,0,0.15); }
+  button{ font-family:'Baloo 2',system-ui,sans-serif; font-size:17px; font-weight:700; color:#fff;
+    background:var(--coral); border:none; border-radius:999px; padding:12px 30px; cursor:pointer;
+    box-shadow:0 4px 0 rgba(0,0,0,0.15); }
+  button:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(0,0,0,0.15);}
+</style>
+</head>
+<body>
+<div id="game">
+  <canvas id="c"></canvas>
+  <div class="hud">
+    <div class="pill">🐟 <span class="n" id="scoreLabel">0</span></div>
+  </div>
+  <div class="hint" id="hint">Chạm xuống nước để quăng câu</div>
+  <div class="bite-prompt" id="bitePrompt">Chạm để giật cần!</div>
+  <div class="popup" id="popup">+10</div>
+  <div class="reel-hud" id="reelHud">
+    <div class="reel-title" id="reelTitle">Đang kéo cá vừa...</div>
+    <div class="row"><span class="lbl">Sức căng</span><div class="bar"><i id="tensionBar" style="width:0%;background:var(--ok);"></i></div></div>
+    <div class="row"><span class="lbl">Khoảng cách</span><div class="bar"><i id="distBar" style="width:100%;background:#3d8fae;"></i></div></div>
+  </div>
+
+  <div class="overlay show" id="startOverlay">
+    <div class="card">
+      <h1>🎣 Câu Cá</h1>
+      <p>Chạm xuống nước để quăng phao câu. Khi phao giật xuống, chạm ngay để giật cần! Sau đó <b>giữ tay</b> để kéo cá vào, thả ra khi dây quá căng.</p>
+      <button id="startBtn">Bắt đầu</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+(function(){
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const startOverlay = document.getElementById('startOverlay');
+  const hint = document.getElementById('hint');
+  const bitePrompt = document.getElementById('bitePrompt');
+  const popupEl = document.getElementById('popup');
+  const reelHud = document.getElementById('reelHud');
+  const reelTitle = document.getElementById('reelTitle');
+  const tensionBar = document.getElementById('tensionBar');
+  const distBar = document.getElementById('distBar');
+
+  let W=0,H=0,DPR=1,waterLine=0;
+  function resize(){
+    DPR = Math.min(window.devicePixelRatio||1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    canvas.width = W*DPR; canvas.height = H*DPR;
+    ctx.setTransform(DPR,0,0,DPR,0,0);
+    waterLine = H*0.30;
+    buildScenery();
+  }
+  function placeRod(){ rod.x = W/2 + 34; rod.y = waterLine - 42; }
+  window.addEventListener('resize', ()=>{ resize(); placeRod(); });
+
+  // ---------- audio ----------
+  let actx=null;
+  function beep(freq,dur,type,vol){
+    try{
+      if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+      const o=actx.createOscillator(), g=actx.createGain();
+      o.type=type||'sine'; o.frequency.value=freq; g.gain.value=vol||0.08;
+      o.connect(g); g.connect(actx.destination); o.start();
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime+dur);
+      o.stop(actx.currentTime+dur);
+    }catch(e){}
+  }
+  function splashSound(){ beep(180,0.15,'sine',0.06); beep(90,0.2,'sine',0.05); }
+
+  // ---------- color helpers ----------
+  function parseColor(c){
+    if(c[0]==='#'){ const h=c.replace('#',''); return [parseInt(h.substr(0,2),16),parseInt(h.substr(2,2),16),parseInt(h.substr(4,2),16)]; }
+    const m = c.match(/[\d.]+/g) || [0,0,0];
+    return [parseFloat(m[0]),parseFloat(m[1]),parseFloat(m[2])];
+  }
+  function mixColor(c1,c2,t){
+    const a=parseColor(c1), b=parseColor(c2);
+    const r=Math.round(a[0]+(b[0]-a[0])*t), g=Math.round(a[1]+(b[1]-a[1])*t), bl=Math.round(a[2]+(b[2]-a[2])*t);
+    return `rgb(${r},${g},${bl})`;
+  }
+  function getVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+
+  // ---------- state ----------
+  let score=0, running=false;
+  let fish=[], bubbles=[], splashes=[], particles=[];
+  const rod = {x:0,y:30};
+
+  const FISH_TYPES = [
+    {name:'nhỏ', size:15, color:'#a8d4d8', speedMin:35, speedMax:75, points:10, weight:50, stamina:2.0, pull:0.55},
+    {name:'vừa', size:21, color:'#ef8a54', speedMin:50, speedMax:95, points:20, weight:28, stamina:3.2, pull:0.75},
+    {name:'to', size:27, color:'#3f7d52', speedMin:55, speedMax:100, points:35, weight:14, stamina:4.6, pull:0.95},
+    {name:'vàng', size:18, color:'#f4b73f', speedMin:90, speedMax:150, points:70, weight:8, stamina:2.6, pull:1.15},
+  ];
+  function pickType(){
+    const total=FISH_TYPES.reduce((s,t)=>s+t.weight,0); let r=Math.random()*total;
+    for(const t of FISH_TYPES){ if(r<t.weight) return t; r-=t.weight; }
+    return FISH_TYPES[0];
+  }
+  function spawnFish(){
+    const t=pickType(); const fromLeft=Math.random()<0.5;
+    const y = waterLine + 50 + Math.random()*(H-waterLine-100);
+    const speed=(t.speedMin+Math.random()*(t.speedMax-t.speedMin))*(fromLeft?1:-1);
+    fish.push({ x: fromLeft?-30:W+30, y:y, baseY:y, vx:speed, size:t.size, color:t.color,
+      points:t.points, type:t.name, stamina:t.stamina, maxStamina:t.stamina, pull:t.pull,
+      phase:Math.random()*Math.PI*2, state:'roam' });
+  }
+
+  // ---------- scenery (rocks / seaweed / light shafts) ----------
+  let rocks=[], weeds=[], shafts=[];
+  function buildScenery(){
+    rocks=[]; const n=Math.max(4,Math.floor(W/140));
+    for(let i=0;i<n;i++){
+      rocks.push({ x: (i+0.5)*(W/n) + (Math.random()*40-20), rw: 30+Math.random()*40, rh:14+Math.random()*10 });
+    }
+    weeds=[]; const wn=Math.max(3,Math.floor(W/180));
+    for(let i=0;i<wn;i++){
+      weeds.push({ x:(i+0.3)*(W/wn)+Math.random()*30, h:40+Math.random()*50, phase:Math.random()*Math.PI*2 });
+    }
+    shafts=[]; for(let i=0;i<5;i++){ shafts.push({ x:(i+0.5)*(W/5), phase:Math.random()*Math.PI*2 }); }
+  }
+
+  // ---------- hook / bobber state machine ----------
+  // idle | casting | floating | biting | reeling | caught_anim
+  const hook = { x:0,y:0, state:'idle',
+    castFrom:{x:0,y:0}, castTo:{x:0,y:0}, castT:0, castDur:0.55,
+    biteTimer: 2+Math.random()*2, biteWindow:0, biteWindowMax:0.85, biter:null,
+    tension:0, distance:100, reelingFish:null, isHolding:false, caughtAnimT:0 };
+
+  function resetHook(){ hook.x=rod.x; hook.y=rod.y; hook.state='idle'; hook.biteTimer=2+Math.random()*2; hint.style.opacity='0.9'; reelHud.classList.remove('show'); bitePrompt.classList.remove('show'); }
+
+  function startCast(tx,ty){
+    if(hook.state!=='idle' && hook.state!=='floating') return;
+    hint.style.opacity='0'; bitePrompt.classList.remove('show');
+    hook.castFrom.x = hook.x; hook.castFrom.y = hook.y;
+    const clampedX = Math.max(24, Math.min(W-24, tx));
+    hook.castTo.x = clampedX; hook.castTo.y = waterLine;
+    hook.castT = 0;
+    const dist = Math.hypot(hook.castTo.x-rod.x, hook.castTo.y-rod.y);
+    hook.castDur = 0.35 + Math.min(0.5, dist/900);
+    hook.state='casting';
+  }
+
+  function landSplash(x,y){
+    splashes.push({x,y,r:4,alpha:1,maxR:26});
+    splashes.push({x,y,r:1,alpha:0.8,maxR:14});
+    for(let i=0;i<6;i++){
+      particles.push({x,y,vx:(Math.random()*2-1)*60,vy:-Math.random()*90-40,g:220,alpha:1,size:2+Math.random()*2});
+    }
+    splashSound();
+  }
+
+  function showPopup(text,color){
+    popupEl.textContent=text; popupEl.style.color=color||getVar('--gold');
+    popupEl.classList.remove('show'); void popupEl.offsetWidth; popupEl.classList.add('show');
+    clearTimeout(showPopup._t);
+    showPopup._t=setTimeout(()=>popupEl.classList.remove('show'),900);
+  }
+
+  function beginReel(f){
+    f.state='hooked';
+    hook.state='reeling'; hook.reelingFish=f; hook.tension=8; hook.distance=100; hook.isHolding=false;
+    reelHud.classList.add('show');
+    reelTitle.textContent = 'Đang kéo cá ' + f.type + '...';
+    hint.style.opacity='0';
+  }
+
+  function loseFish(reason){
+    const f=hook.reelingFish;
+    if(f){ f.state='roam'; f.vx = (Math.random()<0.5?-1:1)*(60+Math.random()*60); }
+    hook.reelingFish=null; hook.state='idle';
+    reelHud.classList.remove('show');
+    hint.textContent = reason==='snap' ? 'Đứt dây! Cá đã chạy mất.' : 'Cá đã sổng mất!';
+    hint.style.opacity='0.95';
+    setTimeout(()=>{ hint.textContent='Chạm xuống nước để quăng câu'; },1400);
+    resetHook();
+  }
+
+  function finishCatch(){
+    const f=hook.reelingFish;
+    if(f){
+      score += f.points; scoreLabel.textContent=score;
+      showPopup('+'+f.points+' · Cá '+f.type, f.type==='vàng'?'#f4b73f':'#fbf6e9');
+      beep(f.points>=60?880:f.points>=30?660:520,0.2,'triangle',0.1);
+      fish = fish.filter(x=>x!==f);
+    }
+    hook.reelingFish=null; reelHud.classList.remove('show');
+    resetHook();
+  }
+
+  // ---------- pointer input ----------
+  function pointerPos(e){
+    const rect=canvas.getBoundingClientRect();
+    const cx=(e.touches?e.touches[0].clientX:e.clientX)-rect.left;
+    const cy=(e.touches?e.touches[0].clientY:e.clientY)-rect.top;
+    return {x:cx,y:cy};
+  }
+  canvas.addEventListener('pointerdown',(e)=>{
+    if(!running) return;
+    const p=pointerPos(e);
+    if(hook.state==='idle' || hook.state==='floating'){
+      if(p.y < waterLine) return;
+      startCast(p.x,p.y);
+    } else if(hook.state==='biting'){
+      const f=hook.biter; hook.biter=null;
+      bitePrompt.classList.remove('show');
+      beginReel(f);
+    } else if(hook.state==='reeling'){
+      hook.isHolding=true;
+    }
+  });
+  window.addEventListener('pointerup',()=>{ hook.isHolding=false; });
+  window.addEventListener('pointercancel',()=>{ hook.isHolding=false; });
+
+  document.getElementById('startBtn').addEventListener('click', startGame);
+
+  function startGame(){
+    score=0; fish=[]; bubbles=[]; splashes=[]; particles=[];
+    scoreLabel.textContent='0';
+    resetHook();
+    startOverlay.classList.remove('show');
+    running=true;
+    for(let i=0;i<6;i++) spawnFish();
+  }
+
+  // ---------- update ----------
+  let lastT=performance.now();
+  function update(dt){
+    // hook / bobber machine
+    if(hook.state==='casting'){
+      hook.castT += dt/hook.castDur;
+      const t = Math.min(1,hook.castT);
+      const arcH = 70;
+      hook.x = hook.castFrom.x + (hook.castTo.x-hook.castFrom.x)*t;
+      hook.y = hook.castFrom.y + (hook.castTo.y-hook.castFrom.y)*t - Math.sin(t*Math.PI)*arcH;
+      if(t>=1){ hook.x=hook.castTo.x; hook.y=hook.castTo.y; landSplash(hook.x,hook.y); hook.state='floating'; hook.biteTimer=1.2+Math.random()*1.8; }
+    } else if(hook.state==='floating'){
+      const bob = Math.sin(performance.now()/450 + hook.x)*2.5;
+      hook.y = waterLine + bob;
+      hook.biteTimer -= dt;
+      if(hook.biteTimer<=0){
+        let candidate=null,bestD=220;
+        for(const f of fish){ if(f.state!=='roam') continue; const d=Math.abs(f.x-hook.x); if(d<bestD){bestD=d;candidate=f;} }
+        if(candidate){ candidate.state='approaching'; candidate.approachTx=hook.x; hook.biter=candidate; hook.biteTimer=999; }
+        else hook.biteTimer = 0.6+Math.random()*0.8;
+      }
+    } else if(hook.state==='floating' || hook.state==='idle'){
+      // no-op
+    }
+
+    // approaching fish steer toward bobber
+    for(const f of fish){
+      if(f.state==='approaching'){
+        const dx = hook.x - f.x;
+        f.vx = Math.sign(dx) * Math.max(Math.abs(f.vx), 90);
+        if(Math.abs(dx) < 14){
+          f.state='biterActive';
+          hook.state='biting'; hook.biteWindow=hook.biteWindowMax;
+          bitePrompt.classList.add('show');
+        }
+      }
+    }
+    if(hook.state==='biting'){
+      const t=performance.now()/70;
+      hook.y = waterLine + 16 + Math.sin(t)*2;
+      hook.biteWindow -= dt;
+      if(hook.biteWindow<=0){
+        const f=hook.biter;
+        if(f){ f.state='roam'; f.vx=(f.vx>=0?1:-1)*Math.abs(f.vx); }
+        hook.biter=null; bitePrompt.classList.remove('show');
+        hook.state='floating'; hook.biteTimer=1.5+Math.random()*1.5;
+      }
+    }
+
+    if(hook.state==='reeling'){
+      const f=hook.reelingFish;
+      if(f){
+        const resisting = f.stamina>0.15;
+        if(hook.isHolding){
+          hook.distance -= (46 + f.pull*8) * dt;
+          hook.tension += (resisting? 46:18) * dt;
+          if(resisting) f.stamina -= dt*0.9;
+        } else {
+          if(resisting){ hook.distance += f.pull*30*dt; }
+          hook.tension -= 55*dt;
+        }
+        hook.tension = Math.max(0, Math.min(100,hook.tension));
+        hook.distance = Math.max(0, Math.min(100,hook.distance));
+
+        if(hook.tension>=100){
+          const snapChance = 1.4*dt;
+          if(Math.random()<snapChance){ loseFish('snap'); }
+        }
+        if(hook.distance<=0 && hook.state==='reeling'){
+          hook.state='caught_anim'; hook.caughtAnimT=0;
+        }
+        // position fish along the reel path for rendering
+        const tprog = 1-(hook.distance/100);
+        f.x = hook.x + (rod.x-hook.x)*Math.max(0,Math.min(1,tprog*0.9));
+        f.y = hook.y + (Math.sin(performance.now()/120)*6);
+        f.y = Math.min(H-20, Math.max(waterLine+10,f.y));
+
+        tensionBar.style.width = hook.tension+'%';
+        tensionBar.style.background = hook.tension>75?'var(--danger)':hook.tension>45?'var(--gold)':'var(--ok)';
+        distBar.style.width = (100-hook.distance)+'%';
+      }
+    } else if(hook.state==='caught_anim'){
+      hook.caughtAnimT += dt;
+      const f=hook.reelingFish;
+      if(f){ f.x += (rod.x-f.x)*0.18; f.y += (rod.y+20-f.y)*0.18; }
+      if(hook.caughtAnimT>0.45){ finishCatch(); }
+    }
+
+    // fish roaming movement
+    for(const f of fish){
+      if(f.state==='hooked') continue;
+      f.x += f.vx*dt;
+      f.phase += dt*3;
+      if(f.state==='roam' || f.state==='approaching'){
+        f.y = f.baseY + Math.sin(f.phase)*4;
+      }
+    }
+    fish = fish.filter(f=> f.state==='hooked' || (f.x>-70 && f.x<W+70));
+    if(fish.filter(f=>f.state!=='hooked').length < 7 && Math.random()<0.03) spawnFish();
+
+    for(const s of splashes){ s.r+=(s.maxR)*dt*1.6; s.alpha-=dt*1.4; }
+    splashes = splashes.filter(s=>s.alpha>0);
+    for(const p of particles){ p.x+=p.vx*dt; p.vy+=p.g*dt; p.y+=p.vy*dt; p.alpha-=dt*1.6; }
+    particles = particles.filter(p=>p.alpha>0 && p.y<H);
+
+    if(Math.random()<0.035){ bubbles.push({x:Math.random()*W,y:H+10,r:2+Math.random()*4,vy:30+Math.random()*40}); }
+    for(const b of bubbles){ b.y -= b.vy*dt; }
+    bubbles = bubbles.filter(b=>b.y>waterLine-10);
+  }
+
+  // ---------- render ----------
+  function drawBackground(){
+    const skyGrad=ctx.createLinearGradient(0,0,0,waterLine);
+    skyGrad.addColorStop(0,getVar('--sky-top')); skyGrad.addColorStop(1,getVar('--sky-bot'));
+    ctx.fillStyle=skyGrad; ctx.fillRect(0,0,W,waterLine);
+
+    ctx.beginPath(); ctx.arc(W*0.82,waterLine*0.32,24,0,Math.PI*2);
+    ctx.fillStyle='rgba(244,183,63,0.9)'; ctx.fill();
+    drawCloud(W*0.2,waterLine*0.32,1); drawCloud(W*0.55,waterLine*0.52,0.7);
+
+    const waterGrad=ctx.createLinearGradient(0,waterLine,0,H);
+    waterGrad.addColorStop(0,getVar('--water-top')); waterGrad.addColorStop(0.55,getVar('--water-mid')); waterGrad.addColorStop(1,getVar('--water-bot'));
+    ctx.fillStyle=waterGrad; ctx.fillRect(0,waterLine,W,H-waterLine);
+
+    // sun glare on water
+    const glareT = 0.6+Math.sin(performance.now()/900)*0.15;
+    const glareGrad = ctx.createRadialGradient(W*0.82,waterLine+10,4,W*0.82,waterLine+10,90);
+    glareGrad.addColorStop(0,`rgba(255,230,160,${0.35*glareT})`);
+    glareGrad.addColorStop(1,'rgba(255,230,160,0)');
+    ctx.fillStyle=glareGrad; ctx.fillRect(W*0.82-90,waterLine,180,110);
+
+    // light shafts
+    const t2=performance.now()/1000;
+    for(const s of shafts){
+      const drift = Math.sin(t2*0.3+s.phase)*18;
+      ctx.save();
+      ctx.globalAlpha=0.05;
+      ctx.fillStyle='#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(s.x+drift, waterLine);
+      ctx.lineTo(s.x+drift+34, waterLine);
+      ctx.lineTo(s.x+drift-40, H);
+      ctx.lineTo(s.x+drift-84, H);
+      ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+
+    // seaweed
+    for(const w of weeds){
+      const sway = Math.sin(t2*1.3+w.phase)*10;
+      ctx.strokeStyle='rgba(60,110,70,0.55)'; ctx.lineWidth=5; ctx.lineCap='round';
+      ctx.beginPath();
+      ctx.moveTo(w.x,H);
+      ctx.quadraticCurveTo(w.x+sway, H-w.h*0.55, w.x+sway*1.4, H-w.h);
+      ctx.stroke();
+    }
+    // rocks
+    for(const r of rocks){
+      ctx.fillStyle='rgba(40,50,45,0.45)';
+      ctx.beginPath(); ctx.ellipse(r.x,H-4,r.rw,r.rh,0,0,Math.PI*2); ctx.fill();
+    }
+
+    // surface wave line
+    ctx.strokeStyle='rgba(255,255,255,0.4)'; ctx.lineWidth=2; ctx.beginPath();
+    const t=performance.now()/500;
+    for(let x=0;x<=W;x+=8){ const y=waterLine+Math.sin(x*0.05+t)*3; if(x===0) ctx.moveTo(x,y); else ctx.lineTo(x,y); }
+    ctx.stroke();
+
+    // vignette
+    const vg = ctx.createRadialGradient(W/2,H/2,H*0.4,W/2,H/2,H*0.9);
+    vg.addColorStop(0,'rgba(0,0,0,0)'); vg.addColorStop(1,'rgba(0,0,0,0.18)');
+    ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+  }
+
+  function drawCloud(cx,cy,scale){
+    ctx.save(); ctx.translate(cx,cy); ctx.scale(scale,scale);
+    ctx.fillStyle='rgba(255,255,255,0.85)';
+    ctx.beginPath();
+    ctx.ellipse(0,0,26,14,0,0,Math.PI*2);
+    ctx.ellipse(20,4,18,11,0,0,Math.PI*2);
+    ctx.ellipse(-20,4,18,11,0,0,Math.PI*2);
+    ctx.fill(); ctx.restore();
+  }
+
+  function drawFish(f){
+    const depthT = Math.max(0,Math.min(1,(f.y-waterLine)/(H-waterLine)));
+    const shaded = mixColor(f.color, '#062733', depthT*0.55);
+    const dir = f.vx>=0?1:-1;
+    ctx.save();
+    ctx.translate(f.x,f.y); ctx.scale(dir,1);
+
+    // shadow under fish (subtle, toward seabed)
+    ctx.fillStyle='rgba(0,0,0,0.12)';
+    ctx.beginPath(); ctx.ellipse(0, Math.min(H-f.y,40), f.size*0.9, f.size*0.25, 0,0,Math.PI*2); ctx.fill();
+
+    // tail
+    ctx.fillStyle=shaded;
+    const tailWag = Math.sin(f.phase*2)*0.3;
+    ctx.save(); ctx.rotate(tailWag);
+    ctx.beginPath();
+    ctx.moveTo(-f.size*0.82,0);
+    ctx.lineTo(-f.size*1.55,-f.size*0.55);
+    ctx.lineTo(-f.size*1.2,0);
+    ctx.lineTo(-f.size*1.55,f.size*0.55);
+    ctx.closePath(); ctx.fill();
+    ctx.restore();
+
+    // body
+    const bodyGrad = ctx.createLinearGradient(0,-f.size*0.6,0,f.size*0.6);
+    bodyGrad.addColorStop(0,shaded);
+    bodyGrad.addColorStop(1, mixColor(shaded,'#fbf6e9',0.5));
+    ctx.fillStyle=bodyGrad;
+    ctx.beginPath(); ctx.ellipse(0,0,f.size,f.size*0.56,0,0,Math.PI*2); ctx.fill();
+
+    // dorsal fin
+    ctx.fillStyle=shaded;
+    ctx.beginPath();
+    ctx.moveTo(-f.size*0.15,-f.size*0.5);
+    ctx.lineTo(f.size*0.15,-f.size*1.05);
+    ctx.lineTo(f.size*0.42,-f.size*0.42);
+    ctx.closePath(); ctx.fill();
+
+    // pectoral fin
+    ctx.beginPath();
+    ctx.moveTo(f.size*0.05,f.size*0.15);
+    ctx.lineTo(f.size*0.32,f.size*0.55);
+    ctx.lineTo(f.size*0.42,f.size*0.05);
+    ctx.closePath(); ctx.fill();
+
+    // gill line
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=1.2;
+    ctx.beginPath(); ctx.arc(f.size*0.55,0,f.size*0.3,-Math.PI*0.4,Math.PI*0.4); ctx.stroke();
+
+    // scale hint lines
+    ctx.strokeStyle='rgba(255,255,255,0.18)'; ctx.lineWidth=1;
+    for(let i=-1;i<=1;i++){ ctx.beginPath(); ctx.arc(-f.size*0.1+i*f.size*0.28,0,f.size*0.22,0,Math.PI*2); ctx.stroke(); }
+
+    // eye
+    ctx.fillStyle='#fff';
+    ctx.beginPath(); ctx.arc(f.size*0.62,-f.size*0.06,f.size*0.14,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='#0b1f26';
+    ctx.beginPath(); ctx.arc(f.size*0.66,-f.size*0.06,f.size*0.075,0,Math.PI*2); ctx.fill();
+
+    ctx.restore();
+  }
+
+  function drawBoatAndAngler(){
+    const boatCx = rod.x - 48, baseY = waterLine;
+    const bw=104, bh=30;
+
+    // gentle bob so boat feels like it's floating on the water
+    const bob = Math.sin(performance.now()/650)*2.2;
+
+    ctx.save();
+    ctx.translate(boatCx, baseY+bob);
+
+    // soft shadow/ripple around hull on the water
+    ctx.fillStyle='rgba(6,39,51,0.25)';
+    ctx.beginPath(); ctx.ellipse(0,4,bw*0.62,7,0,0,Math.PI*2); ctx.fill();
+
+    // hull
+    ctx.beginPath();
+    ctx.moveTo(-bw/2,0);
+    ctx.quadraticCurveTo(-bw/2-8, bh*0.55, -bw/2+14, bh*0.85);
+    ctx.lineTo(bw/2-14, bh*0.85);
+    ctx.quadraticCurveTo(bw/2+8, bh*0.55, bw/2, 0);
+    ctx.closePath();
+    const hullGrad = ctx.createLinearGradient(0,0,0,bh*0.85);
+    hullGrad.addColorStop(0,'#cf7f45'); hullGrad.addColorStop(1,'#844a25');
+    ctx.fillStyle=hullGrad; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=1.5; ctx.stroke();
+
+    // plank lines on hull
+    ctx.strokeStyle='rgba(0,0,0,0.15)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(-bw/2+6,bh*0.32); ctx.lineTo(bw/2-6,bh*0.32); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-bw/2+10,bh*0.6); ctx.lineTo(bw/2-10,bh*0.6); ctx.stroke();
+
+    // deck rim
+    ctx.strokeStyle='#5c3417'; ctx.lineWidth=3.5; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(-bw/2+2,0); ctx.lineTo(bw/2-2,0); ctx.stroke();
+
+    // little bench seat
+    ctx.fillStyle='#6b3d20';
+    ctx.fillRect(-16,-9,32,6);
+
+    ctx.restore();
+
+    // --- angler sitting on the boat ---
+    const px = boatCx - 6, py = baseY + bob - 9;
+    ctx.save(); ctx.translate(px,py);
+
+    // torso (simple seated silhouette)
+    const shirtGrad = ctx.createLinearGradient(0,-24,0,0);
+    shirtGrad.addColorStop(0,'#3d84a8'); shirtGrad.addColorStop(1,'#2c5f7a');
+    ctx.fillStyle=shirtGrad;
+    ctx.beginPath();
+    ctx.moveTo(-11,2);
+    ctx.quadraticCurveTo(-12,-20,0,-23);
+    ctx.quadraticCurveTo(12,-20,11,2);
+    ctx.closePath(); ctx.fill();
+
+    // arm reaching toward the rod
+    ctx.strokeStyle='#e8b48c'; ctx.lineWidth=6; ctx.lineCap='round';
+    ctx.beginPath(); ctx.moveTo(6,-16); ctx.lineTo(22,-24); ctx.stroke();
+
+    // head
+    ctx.fillStyle='#e8b48c';
+    ctx.beginPath(); ctx.arc(0,-29,8.5,0,Math.PI*2); ctx.fill();
+    // simple face hint
+    ctx.fillStyle='rgba(11,31,38,0.7)';
+    ctx.beginPath(); ctx.arc(3,-30,1.1,0,Math.PI*2); ctx.fill();
+
+    // straw hat
+    ctx.fillStyle='#d8b56a';
+    ctx.beginPath(); ctx.ellipse(0,-35.5,11,4,0,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0,-38,7,Math.PI,0); ctx.fill();
+    ctx.strokeStyle='#a9834a'; ctx.lineWidth=1.2; ctx.stroke();
+
+    ctx.restore();
+
+    // --- fishing rod from hand to rod tip (rod.x / rod.y), bending with tension ---
+    const handX = px+22, handY = py-24;
+    const tension = hook.state==='reeling' ? hook.tension : (hook.state==='floating'||hook.state==='biting'?12:2);
+    const bend = 5 + tension*0.28;
+    ctx.strokeStyle='#4a3626'; ctx.lineWidth=3; ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(handX,handY);
+    ctx.quadraticCurveTo((handX+rod.x)/2, (handY+rod.y)/2 - bend, rod.x, rod.y);
+    ctx.stroke();
+
+    // reel
+    ctx.fillStyle='#2f2f2f';
+    ctx.beginPath(); ctx.arc(handX-4,handY+3,4.5,0,Math.PI*2); ctx.fill();
+    ctx.strokeStyle='#111'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(handX-4,handY-1); ctx.lineTo(handX-4,handY+7); ctx.stroke();
+
+    return {handX, handY, bend};
+  }
+
+  function drawRodAndLine(){
+    drawBoatAndAngler();
+
+    const tension = hook.state==='reeling' ? hook.tension : (hook.state==='floating'||hook.state==='biting'?10:0);
+    const sag = 6 + tension*0.35;
+    const midx=(rod.x+hook.x)/2, midy=(rod.y+hook.y)/2 + sag;
+
+    // fishing line (bent line to hook using quadratic curve)
+    ctx.strokeStyle = getVar('--line'); ctx.lineWidth=1.4; ctx.globalAlpha=0.85;
+    ctx.beginPath();
+    ctx.moveTo(rod.x, rod.y);
+    ctx.quadraticCurveTo(midx, midy, hook.x, hook.y);
+    ctx.stroke();
+    ctx.globalAlpha=1;
+
+    // bobber (only visible when not reeling/caught, i.e. still on surface)
+    if(hook.state==='casting' || hook.state==='floating' || hook.state==='biting' || hook.state==='idle'){
+      ctx.save(); ctx.translate(hook.x,hook.y);
+      ctx.beginPath(); ctx.arc(0,0,6,0,Math.PI*2); ctx.fillStyle='#e5533d'; ctx.fill();
+      ctx.beginPath(); ctx.arc(0,-3,6,Math.PI,0); ctx.fillStyle='#fbf6e9'; ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  function drawSplashes(){
+    for(const s of splashes){
+      ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.strokeStyle=`rgba(255,255,255,${Math.max(s.alpha,0)})`; ctx.lineWidth=2; ctx.stroke();
+    }
+    ctx.fillStyle='#dff3f7';
+    for(const p of particles){
+      ctx.globalAlpha=Math.max(p.alpha,0);
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  function drawBubbles(){
+    ctx.fillStyle='rgba(255,255,255,0.4)';
+    for(const b of bubbles){ ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,Math.PI*2); ctx.fill(); }
+  }
+
+  function render(){
+    ctx.clearRect(0,0,W,H);
+    drawBackground();
+    drawBubbles();
+    for(const f of fish){ if(f.state!=='hooked') drawFish(f); }
+    drawRodAndLine();
+    if(hook.reelingFish) drawFish(hook.reelingFish);
+    drawSplashes();
+  }
+
+  function loop(now){
+    const dt=Math.min(0.033,(now-lastT)/1000); lastT=now;
+    if(running) update(dt);
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  function init(){
+    resize(); placeRod(); resetHook();
+    render(); requestAnimationFrame(loop);
+  }
+  init();
+})();
+</script>
+</body>
+</html>
